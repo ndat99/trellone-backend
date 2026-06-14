@@ -1,1 +1,4 @@
 desktop.ini
+```text
+node_modules/
+.env
