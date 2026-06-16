@@ -1,10 +1,11 @@
 import jwt from 'jsonwebtoken';
 import { Request, Response } from 'express';
+import { AuthRequest } from '../middlewares/authMiddleware';
 import bcrypt from 'bcrypt';
 import pool from '../config/db';
 
 
-export const register = async ( req: Request, res: Response) : Promise<void> => {
+export const signup = async ( req: Request, res: Response) : Promise<void> => {
     try {
         const { username, email, password, name } = req.body;
         const saltRounds = 10; //10 vong
@@ -21,23 +22,23 @@ export const register = async ( req: Request, res: Response) : Promise<void> => 
 
         const newUser = result.rows[0];
         res.status(201).json({
-            message: `Account registered successfully!`,
+            message: 'Account registered successfully!',
             user: newUser
         });
     } catch (error: any) {
-        console.error('Register error:', error);
+        console.error('Signup error:', error);
 
         //trung username/email
         if (error.code === '23505'){
             res.status(400).json({
-                message: `The username or email address already exists!`
+                message: 'The username or email address already exists!'
             });
             return;
         }
 
         //loi khac
         res.status(500).json({
-            message: `Internal Server error`
+            message: 'Internal Server error'
         });
     }
 };
@@ -52,7 +53,7 @@ export const login = async (req: Request, res: Response) : Promise<void> => {
 
         if (result.rows.length === 0) {
             res.status(401).json({
-                message: `Username not found!`
+                message: 'Username not found!'
             });
             return;
         }
@@ -62,7 +63,7 @@ export const login = async (req: Request, res: Response) : Promise<void> => {
         
         if (!isMatch){
             res.status(401).json({
-                message: `Incorrect password!`
+                message: 'Incorrect password!'
             });
             return;
         }
@@ -83,7 +84,30 @@ export const login = async (req: Request, res: Response) : Promise<void> => {
     } catch (error: any){
         console.error('Login error:', error);
         res.status(500).json({
-            message: `Internal Server error`
+            message: 'Internal Server error'
         });
     };
 }
+
+export const getMe = async (req: AuthRequest, res: Response) : Promise<void> => {
+    try{
+        const userId = req.user.id;
+        const query = `
+            SELECT id, username, email, created_at FROM users WHERE id = $1
+        `
+        const result = await pool.query(query, [userId]);
+
+        if (result.rows.length === 0) {
+            res.status(401).json({
+                message: `User not found`
+            });
+            return;
+        }
+        
+        res.status(200).json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({
+            message: 'Server error:', error
+        });
+    }
+};
