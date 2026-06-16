@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express'; //framework web 
 import cors from 'cors';  //cho phep domain khac goi backend port nay
 import authRoutes from './routes/authRoutes';
+import workspaceRoutes from './routes/workspaceRoutes';
 import pool from './config/db';
 
 
@@ -8,6 +9,7 @@ const app = express();  //khoi tao ud express
 app.use(cors()); //cho phep domain khac goi API
 app.use(express.json()) //dich JSON tu frontend
 app.use('/api/auth', authRoutes); //signup API
+app.use('/api/workspaces', workspaceRoutes);
 
 //test ket noi
 pool.connect((err, client, release) => {
