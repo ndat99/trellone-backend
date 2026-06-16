@@ -7,7 +7,7 @@ import pool from './config/db';
 const app = express();  //khoi tao ud express
 app.use(cors()); //cho phep domain khac goi API
 app.use(express.json()) //dich JSON tu frontend
-app.use('/api/auth', authRoutes); //register API
+app.use('/api/auth', authRoutes); //signup API
 
 //test ket noi
 pool.connect((err, client, release) => {
