@@ -1,22 +1,13 @@
 import express, { Request, Response } from 'express'; //framework web 
 import cors from 'cors';  //cho phep domain khac goi backend port nay
-import { Pool } from 'pg';  //thu vien ket noi postgres
-import dotenv from 'dotenv';  //doc file .env
+import authRoutes from './routes/authRoutes';
+import pool from './config/db';
 
-dotenv.config(); // lenh doc file .env
 
 const app = express();  //khoi tao ud express
 app.use(cors()); //cho phep domain khac goi API
 app.use(express.json()) //dich JSON tu frontend
-
-//tao pool ket noi csdl
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: parseInt(process.env.DB_PORT || '5432'),
-});
+app.use('/api/auth', authRoutes); //register API
 
 //test ket noi
 pool.connect((err, client, release) => {
