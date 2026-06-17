@@ -4,6 +4,12 @@ import pool from '../config/db';
 
 export const createWorkspace = async (req: AuthRequest, res: Response) : Promise<void> => {
     try {
+        if (!req.user){
+            res.status(401).json({
+                message: 'Unauthorized.'
+            });
+            return;
+        }
         const name = req.body.name;
         const ownerId = req.user.id;
 
@@ -11,6 +17,7 @@ export const createWorkspace = async (req: AuthRequest, res: Response) : Promise
             res.status(400).json({
                 message: 'Workspace name is required.'
             });
+            return;
         }
 
         await pool.query('BEGIN');  //bat dau transaction
@@ -43,7 +50,7 @@ export const createWorkspace = async (req: AuthRequest, res: Response) : Promise
 
         console.error('createWorkspace error:', error);
         res.status(500).json({
-            message: 'Server error:', error
+            message: 'Internal server error.' 
         });
     }
 };
@@ -51,6 +58,12 @@ export const createWorkspace = async (req: AuthRequest, res: Response) : Promise
 
 export const getWorkspace = async (req: AuthRequest, res: Response) : Promise<void> => {
     try {
+        if (!req.user){
+            res.status(401).json({
+                message: 'Unauthorized.'
+            });
+            return;
+        }
         const userId = req.user.id; //lay id nguoi dung tu token
         const query = `
             SELECT id, name, created_at, updated_at
@@ -65,14 +78,21 @@ export const getWorkspace = async (req: AuthRequest, res: Response) : Promise<vo
         
         res.status(200).json(result.rows)
     } catch (error) {
+        console.error('getWorkspace error:', error);
         res.status(500).json({
-            message: 'Server error:', error
+            message: 'Internal server error.' 
         });
     }
 };
 
 export const updateWorkspace = async (req: AuthRequest, res: Response) : Promise<void> => {
     try {
+        if (!req.user){
+            res.status(401).json({
+                message: 'Unauthorized.'
+            });
+            return;
+        }
         const id = req.params.id;  //lay tu id cua workspace tren URL
         const name = req.body.name; //lay ten moi tu body
         const userId = req.user.id;
@@ -103,8 +123,9 @@ export const updateWorkspace = async (req: AuthRequest, res: Response) : Promise
             workspace: result.rows[0]
         });
     } catch (error) {
+        console.error('updateWorkspace error:', error);
         res.status(500).json({
-            message: 'Server error:', error
+            message: 'Internal server error.' 
         });
     }
 };
@@ -112,6 +133,12 @@ export const updateWorkspace = async (req: AuthRequest, res: Response) : Promise
 
 export const deleteWorkspace = async (req: AuthRequest, res: Response) : Promise<void> => {
     try {
+        if (!req.user){
+            res.status(401).json({
+                message: 'Unauthorized.'
+            });
+            return;
+        }
         const id = req.params.id;
         const userId= req.user.id;
 
@@ -134,8 +161,9 @@ export const deleteWorkspace = async (req: AuthRequest, res: Response) : Promise
             workspace: result.rows[0]
         });
     } catch (error) {
+        console.error('deleteWorkspace error:', error);
         res.status(500).json({
-            message: 'Server error.', error
+            message: 'Internal server error.' 
         });
     }
 }

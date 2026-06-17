@@ -26,7 +26,7 @@ export const signup = async ( req: Request, res: Response) : Promise<void> => {
             user: newUser
         });
     } catch (error: any) {
-        console.error('Signup error:', error);
+        console.error('signup error:', error);
 
         //trung username/email
         if (error.code === '23505'){
@@ -47,13 +47,13 @@ export const login = async (req: Request, res: Response) : Promise<void> => {
     try{
         const {username, password} = req.body;
         const query = `
-            SELECT * FROM users WHERE username = $1
+            SELECT id, username, email, name, password_hash FROM users WHERE username = $1
         `;
         const result = await pool.query(query, [username]);
 
         if (result.rows.length === 0) {
             res.status(401).json({
-                message: 'Username not found!'
+                message: 'Invalid username or password.'
             });
             return;
         }
@@ -63,13 +63,14 @@ export const login = async (req: Request, res: Response) : Promise<void> => {
         
         if (!isMatch){
             res.status(401).json({
-                message: 'Incorrect password!'
+                message: 'Invalid username or password.'
             });
             return;
         }
 
         //cap token
-        const secretKey = process.env.JWT_SECRET || 'fallback_secret';
+        if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET is not defined!');
+        const secretKey = process.env.JWT_SECRET;
         const token = jwt.sign({ id: user.id }, secretKey, { expiresIn: '1d'});
         res.status(200).json({
             message: 'Login successful',
@@ -82,7 +83,7 @@ export const login = async (req: Request, res: Response) : Promise<void> => {
             }
         });
     } catch (error: any){
-        console.error('Login error:', error);
+        console.error('login error:', error);
         res.status(500).json({
             message: 'Internal Server error'
         });
@@ -91,6 +92,12 @@ export const login = async (req: Request, res: Response) : Promise<void> => {
 
 export const getMe = async (req: AuthRequest, res: Response) : Promise<void> => {
     try{
+        if (!req.user){
+            res.status(401).json({
+                message: 'Unauthorized.'
+            });
+            return;
+        }
         const userId = req.user.id;
         const query = `
             SELECT id, username, email, created_at FROM users WHERE id = $1
@@ -98,7 +105,7 @@ export const getMe = async (req: AuthRequest, res: Response) : Promise<void> => 
         const result = await pool.query(query, [userId]);
 
         if (result.rows.length === 0) {
-            res.status(401).json({
+            res.status(404).json({
                 message: `User not found`
             });
             return;
@@ -106,8 +113,9 @@ export const getMe = async (req: AuthRequest, res: Response) : Promise<void> => 
         
         res.status(200).json(result.rows[0]);
     } catch (error) {
+        console.error('getMe error:', error);
         res.status(500).json({
-            message: 'Server error:', error
+            message: 'Internal server error.' 
         });
     }
 };
