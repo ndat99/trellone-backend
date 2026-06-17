@@ -13,21 +13,35 @@ export const createWorkspace = async (req: AuthRequest, res: Response) : Promise
             });
         }
 
-        const query = `
+        await pool.query('BEGIN');  //bat dau transaction
+        //tao workspace
+        const query1 = `
             INSERT INTO workspaces (name, owner_id)
             VALUES ($1, $2)
             RETURNING *;
         `;
+        const values1 = [name, ownerId];
+        const workspaceResult = await pool.query(query1, values1);
+        const newWorkspace = workspaceResult.rows[0];
 
-        const values = [name, ownerId];
-        const result = await pool.query(query, values);
+        //them owner vao workspace_members
+        const query2 = `
+            INSERT INTO workspace_members (workspace_id, user_id, role)
+            VALUES ($1, $2, 'owner');
+        `;
+        const values2 = [newWorkspace.id, ownerId];
+        await pool.query(query2, values2);
 
-        const newWorkspace = result.rows[0];
+        await pool.query('COMMIT'); //thanh cong -> luu ca 2
+
         res.status(201).json({
             message: 'Workspace created successfully.',
             workspace: newWorkspace
         });
     } catch (error) {
+        await pool.query('ROLLBACK');   //co loi -> huy ca 2
+
+        console.error('createWorkspace error:', error);
         res.status(500).json({
             message: 'Server error:', error
         });
@@ -42,6 +56,8 @@ export const getWorkspace = async (req: AuthRequest, res: Response) : Promise<vo
             SELECT id, name, created_at, updated_at
             FROM workspaces
             WHERE owner_id = $1
+                OR id IN (SELECT workspace_id FROM
+                workspace_members WHERE user_id = $1)
             ORDER BY created_at DESC;
         `;
         
