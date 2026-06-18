@@ -4,14 +4,8 @@ import pool from '../config/db';
 
 export const createWorkspace = async (req: AuthRequest, res: Response) : Promise<void> => {
     try {
-        if (!req.user){
-            res.status(401).json({
-                message: 'Unauthorized.'
-            });
-            return;
-        }
         const name = req.body.name;
-        const ownerId = req.user.id;
+        const ownerId = req.user!.id;
 
         if (!name){
             res.status(400).json({
@@ -58,13 +52,7 @@ export const createWorkspace = async (req: AuthRequest, res: Response) : Promise
 
 export const getWorkspace = async (req: AuthRequest, res: Response) : Promise<void> => {
     try {
-        if (!req.user){
-            res.status(401).json({
-                message: 'Unauthorized.'
-            });
-            return;
-        }
-        const userId = req.user.id; //lay id nguoi dung tu token
+        const userId = req.user!.id; //lay id nguoi dung tu token
         const query = `
             SELECT id, name, created_at, updated_at
             FROM workspaces
@@ -87,15 +75,9 @@ export const getWorkspace = async (req: AuthRequest, res: Response) : Promise<vo
 
 export const updateWorkspace = async (req: AuthRequest, res: Response) : Promise<void> => {
     try {
-        if (!req.user){
-            res.status(401).json({
-                message: 'Unauthorized.'
-            });
-            return;
-        }
         const id = req.params.id;  //lay tu id cua workspace tren URL
         const name = req.body.name; //lay ten moi tu body
-        const userId = req.user.id;
+        const userId = req.user!.id;
 
         if (!name){
             res.status(400).json({
@@ -133,14 +115,8 @@ export const updateWorkspace = async (req: AuthRequest, res: Response) : Promise
 
 export const deleteWorkspace = async (req: AuthRequest, res: Response) : Promise<void> => {
     try {
-        if (!req.user){
-            res.status(401).json({
-                message: 'Unauthorized.'
-            });
-            return;
-        }
         const id = req.params.id;
-        const userId= req.user.id;
+        const userId= req.user!.id;
 
         const query = `
             DELETE FROM workspaces
