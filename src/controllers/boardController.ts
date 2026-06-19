@@ -142,7 +142,7 @@ export const updateBoard = async (req: AuthRequest, res: Response) : Promise<voi
         }
 
         res.status(200).json({
-            message: 'Updated succesfully',
+            message: 'Updated successfully',
             board: result.rows[0]
         });
     } catch (error){
