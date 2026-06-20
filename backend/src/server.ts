@@ -7,6 +7,11 @@ import pool from './config/db';
 
 
 const app = express();  //khoi tao ud express
+
+if (!process.env.JWT_SECRET) {
+  throw new Error('FATAL: JWT_SECRET is not defined in environment variables.');
+}
+
 app.use(cors()); //cho phep domain khac goi API
 app.use(express.json()) //dich JSON tu frontend
 app.use('/api/auth', authRoutes); //signup API
