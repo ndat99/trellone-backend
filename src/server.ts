@@ -4,6 +4,8 @@ import authRoutes from './routes/authRoutes';
 import workspaceRoutes from './routes/workspaceRoutes';
 import boardRoutes from './routes/boardRoutes';
 import pool from './config/db';
+import listRoutes from './routes/listRoutes';
+import taskRoutes from './routes/taskRoutes';
 
 
 const app = express();  //khoi tao ud express
@@ -17,6 +19,8 @@ app.use(express.json()) //dich JSON tu frontend
 app.use('/api/auth', authRoutes); //signup API
 app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/boards', boardRoutes);
+app.use('/api/lists', listRoutes);
+app.use('/api/tasks', taskRoutes);
 
 //test ket noi
 pool.connect((err, client, release) => {

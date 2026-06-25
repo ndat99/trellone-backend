@@ -21,6 +21,13 @@ const listModel = {
         return result.rows;
     },
 
+    findBoardIdByListId: async (listId: number) : Promise<number | null> => {
+        const result = await pool.query(
+            `SELECT board_id FROM lists WHERE id = $1`, [listId]
+        );
+        return result.rows[0]?.board_id ?? null
+    },
+
     findNextPosition: async (boardId: number) : Promise<number> => {
         const query = `
             SELECT COALESCE(MAX(position), -1) +1 AS next_position

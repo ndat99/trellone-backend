@@ -22,7 +22,18 @@ const boardMemberModel = {
             WHERE board_id = $1 AND user_id = $2`, [boardId, userId]
         );
         return result.rows.length > 0;
-    }
+    },
+
+    memberCheckByListId: async (listId: number, userId: number): Promise<boolean> => {
+        const result = await pool.query(
+            `SELECT 1 FROM board_members bm
+            JOIN lists l ON bm.board_id = l.board_id
+            WHERE l.id = $1 AND bm.user_id = $2`,
+            [listId, userId]
+        );
+        return result.rows.length > 0;
+    },
+
 };
 
 export default boardMemberModel;
