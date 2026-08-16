@@ -25,13 +25,13 @@ const taskService = {
         return newtask;
     },
 
-    updateTaskName: async (name: string, taskId: number, userId: number): Promise<TaskRow> => {
+    updateDetails: async (fields: object, taskId: number, userId: number): Promise<TaskRow> => {
         const existing = await taskModel.findByTaskId(taskId);
-        if (!existing) throw { status: 404, message: 'Task not found.' };
+        if (!existing) throw { status: 404, message: 'Task not found.'};
 
         await taskService.checkMemberByListId(existing.list_id, userId);
 
-        const task = await taskModel.rename(name, taskId, existing.list_id);
+        const task = await taskModel.update(taskId, existing.list_id, fields);
         if (!task) throw { status: 404, message: 'Task not found or access denied.'}
         return task;
     },

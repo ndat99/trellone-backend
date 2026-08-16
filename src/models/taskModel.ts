@@ -88,14 +88,41 @@ const taskModel = {
         return archivedResult.rows[0] ?? null;
     },
 
-    rename: async (name: string, taskId: number, listId: number) : Promise<TaskRow | null> => {
-        const query = `
+    update: async (
+        taskId: number,
+        listId: number,
+        fields: {
+            name?: string,
+            description?: string,
+            is_done?: boolean,
+            start_date?: string | null,
+            due_date?: string | null,
+            cover_color?: string | null
+        }
+    ) : Promise<TaskRow | null> => {
+        const query=`
             UPDATE tasks
-            SET name = $1, updated_at = CURRENT_TIMESTAMP
-            WHERE id = $2 AND list_id = $3
-            RETURNING id, name;
+            SET
+                name = COALESCE($1, name),
+                description = COALESCE($2, description),
+                is_done     = COALESCE($3, is_done),
+                due_date    = COALESCE($4, due_date),
+                start_date  = COALESCE($5, start_date),
+                cover_color = COALESCE($6, cover_color),
+                updated_at  = CURRENT_TIMESTAMP
+            WHERE id = $7 AND list_id = $8
+            RETURNING id, name, description, is_done, due_date, start_date, cover_color, updated_at;
         `;
-        const result = await pool.query(query, [name, taskId, listId]);
+        const result = await pool.query(query, [
+            fields.name         ?? null,
+            fields.description  ?? null,
+            fields.is_done      ?? null,
+            fields.due_date     ?? null,
+            fields.start_date   ?? null,
+            fields.cover_color  ?? null,
+            taskId,
+            listId
+        ]);
         return result.rows[0] ?? null;
     },
 

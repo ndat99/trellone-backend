@@ -59,26 +59,26 @@ export const getTask = async (req: AuthRequest, res: Response) : Promise<void> =
     }
 };
 
-export const updateTaskName = async (req: AuthRequest, res: Response) : Promise<void> => {
+export const updateDetails = async (req: AuthRequest, res: Response) : Promise<void> => {
     try{
         const taskId = parseInt(req.params.id as string, 10);
-        const { name } = req.body;
+        const fields = req.body;
         const userId = req.user!.id;
 
-        if (!name){
-            res.status(400).json({
-                message: 'task name is required.'
-            });
+        const ALLOWED = ['name', 'description', 'is_done', 'due_date', 'start_date', 'cover_color'];
+        const hasValidField = Object.keys(fields).some(k => ALLOWED.includes(k));
+        if (!hasValidField) {
+            res.status(400).json({ message: 'No valid fields provided.' });
             return;
         }
 
-        const task = await taskService.updateTaskName(name, taskId, userId);
+        const task = await taskService.updateDetails(fields, taskId, userId);
         res.status(200).json({
             message: 'Updated successfully',
             task
         });
     } catch (error: any){
-        console.error('updateTaskName error:', error);
+        console.error('updateDetails error:', error);
         res.status(error.status ?? 500).json({
             message: error.message ?? 'Internal server error.'
         });
