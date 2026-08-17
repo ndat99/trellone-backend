@@ -27,14 +27,6 @@ const taskModel = {
         const tasks = await pool.query(query, [listId]);
         return tasks.rows;
     },
-
-    findById: async (listId: number, taskId: number): Promise<TaskRow | null> => {
-        const query = `
-            SELECT * FROM tasks WHERE id = $1 AND list_id = $2;
-        `;
-        const task = await pool.query(query, [taskId, listId]);
-        return task.rows[0] ?? null;
-    },
     
     findByTaskId: async (taskId: number): Promise<TaskRow | null> => {
         const result = await pool.query(
@@ -76,14 +68,12 @@ const taskModel = {
         return deleteResult.rows[0] ?? null;
     },
 
-    archive: async (taskId: number, listId: number) : Promise<TaskRow | null> =>{
+    toggleArchive: async (taskId: number, listId: number) : Promise<TaskRow | null> =>{
         const archivedResult = await pool.query(
             `UPDATE tasks
-            SET is_archived = true
-            WHERE id = $1
-                AND list_id = $2
-                AND is_archived = false
-            RETURNING id, name, position`, [taskId, listId]
+            SET is_archived = NOT is_archived
+            WHERE id = $1 AND list_id = $2
+            RETURNING id, name, position, is_archived`, [taskId, listId]
         );
         return archivedResult.rows[0] ?? null;
     },

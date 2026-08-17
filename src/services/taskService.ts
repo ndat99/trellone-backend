@@ -17,6 +17,14 @@ const taskService = {
         return taskModel.findByList(listId);
     },
 
+    getTaskById: async (taskId: number, userId: number) : Promise<TaskRow> => {
+        const task = await taskModel.findByTaskId(taskId);
+        if (!task) throw { status: 404, message: 'Task not found.'};
+
+        await taskService.checkMemberByListId(task.list_id, userId);
+        return task;
+    },
+
     createTask: async (listId: number, name: string, userId: number) : Promise<TaskRow> => {
         await taskService.checkMemberByListId(listId, userId);
         
@@ -32,6 +40,17 @@ const taskService = {
         await taskService.checkMemberByListId(existing.list_id, userId);
 
         const task = await taskModel.update(taskId, existing.list_id, fields);
+        if (!task) throw { status: 404, message: 'Task not found or access denied.'}
+        return task;
+    },
+
+    toggleArchiveTask: async (taskId: number, userId: number): Promise<TaskRow> => {
+        const existing = await taskModel.findByTaskId(taskId);
+        if (!existing) throw { status: 404, message: 'Task not found.'};
+
+        await taskService.checkMemberByListId(existing.list_id, userId);
+
+        const task = await taskModel.toggleArchive(taskId, existing.list_id);
         if (!task) throw { status: 404, message: 'Task not found or access denied.'}
         return task;
     },

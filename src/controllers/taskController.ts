@@ -59,6 +59,21 @@ export const getTask = async (req: AuthRequest, res: Response) : Promise<void> =
     }
 };
 
+export const getTaskById =  async (req: AuthRequest, res: Response) : Promise<void> => {
+    try{
+        const taskId = parseInt(req.params.id as string, 10);
+        const userId = req.user!.id;
+
+        const task =  await taskService.getTaskById(taskId, userId);
+        res.status(200).json(task);
+    } catch (error: any){
+        console.error('getTaskById error: ', error);
+        res.status(error.status ?? 500).json({
+            message: error.message ?? 'Internal server error.'
+        })
+    }
+};
+
 export const updateDetails = async (req: AuthRequest, res: Response) : Promise<void> => {
     try{
         const taskId = parseInt(req.params.id as string, 10);
@@ -84,6 +99,25 @@ export const updateDetails = async (req: AuthRequest, res: Response) : Promise<v
         });
     }
 };
+
+export const archiveTask = async (req: AuthRequest, res: Response) : Promise<void> => {
+    try{
+        const taskId = parseInt(req.params.id as string, 10);
+        const userId = req.user!.id;
+
+        const task = await taskService.toggleArchiveTask(taskId, userId);
+        res.status(200).json({
+            message: 'Archived/Unarchived successfully',
+            task
+        });
+    } catch (error: any){
+        console.error('archiveTask error:', error);
+        res.status(error.status ?? 500).json({
+            message: error.message ?? 'Internal server error.'
+        });
+    }
+};
+
 
 export const deleteTask = async (req: AuthRequest, res: Response) : Promise<void> => {
     try{
