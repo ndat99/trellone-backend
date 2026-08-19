@@ -1,6 +1,7 @@
 import pool from "../config/db";
 import taskModel, { TaskRow } from "../models/taskModel";
 import boardMemberModel from "../models/boardMemberModel";
+import taskMemberModel, { TaskMemberRow } from "../models/taskMemberModel";
 import listModel from "../models/listModel";
 
 const taskService = {
@@ -17,6 +18,14 @@ const taskService = {
         return taskModel.findByList(listId);
     },
 
+    getTaskById: async (taskId: number, userId: number) : Promise<TaskRow> => {
+        const task = await taskModel.findByTaskId(taskId);
+        if (!task) throw { status: 404, message: 'Task not found.'};
+
+        await taskService.checkMemberByListId(task.list_id, userId);
+        return task;
+    },
+
     createTask: async (listId: number, name: string, userId: number) : Promise<TaskRow> => {
         await taskService.checkMemberByListId(listId, userId);
         
@@ -25,13 +34,24 @@ const taskService = {
         return newtask;
     },
 
-    updateTaskName: async (name: string, taskId: number, userId: number): Promise<TaskRow> => {
+    updateDetails: async (fields: object, taskId: number, userId: number): Promise<TaskRow> => {
         const existing = await taskModel.findByTaskId(taskId);
-        if (!existing) throw { status: 404, message: 'Task not found.' };
+        if (!existing) throw { status: 404, message: 'Task not found.'};
 
         await taskService.checkMemberByListId(existing.list_id, userId);
 
-        const task = await taskModel.rename(name, taskId, existing.list_id);
+        const task = await taskModel.update(taskId, existing.list_id, fields);
+        if (!task) throw { status: 404, message: 'Task not found or access denied.'}
+        return task;
+    },
+
+    toggleArchiveTask: async (taskId: number, userId: number): Promise<TaskRow> => {
+        const existing = await taskModel.findByTaskId(taskId);
+        if (!existing) throw { status: 404, message: 'Task not found.'};
+
+        await taskService.checkMemberByListId(existing.list_id, userId);
+
+        const task = await taskModel.toggleArchive(taskId, existing.list_id);
         if (!task) throw { status: 404, message: 'Task not found or access denied.'}
         return task;
     },
@@ -125,6 +145,37 @@ const taskService = {
             await pool.query('ROLLBACK');
             throw error;
         }
+    },
+
+    getTaskMembers: async (taskId: number, userId: number) : Promise<TaskMemberRow[]> => {
+        const task = await taskModel.findByTaskId(taskId);
+        if (!task) throw { status: 404, message: `Task not found.`};
+        
+        await taskService.checkMemberByListId(task.list_id, userId);
+        return taskMemberModel.findByTask(taskId);
+    },
+    
+    addTaskMember: async (taskId: number, targetUserId: number, userId: number) : Promise<void> => {
+        const task = await taskModel.findByTaskId(taskId);
+        if (!task) throw { status: 404, message: 'Task not found.'};
+        
+        await taskService.checkMemberByListId(task.list_id, userId);
+
+        const isTargetBoardMember = await boardMemberModel.memberCheckByListId(task.list_id, targetUserId);
+        if (!isTargetBoardMember){
+            throw { status: 400, message: 'Target user is not a member of this board.'};
+        }
+        
+        await taskMemberModel.add(taskId, targetUserId);
+    },
+
+    removeTaskMember: async (taskId: number, targetUserId: number, userId: number) : Promise<void> => {
+        const task = await taskModel.findByTaskId(taskId);
+        if (!task) throw { status: 404, message: 'Task not found.'};
+        
+        await taskService.checkMemberByListId(task.list_id, userId);
+        const deleted = await taskMemberModel.remove(taskId, targetUserId);
+        if (!deleted) throw { status: 404, message: 'Member not found in this task.'};
     }
 };
 
