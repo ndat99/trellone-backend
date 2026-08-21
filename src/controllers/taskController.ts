@@ -260,3 +260,82 @@ export const removeTaskMember = async (req: AuthRequest, res: Response) : Promis
         });
     }
 };
+
+export const getTaskLabels = async (req: AuthRequest, res: Response) : Promise<void> => {
+    try{
+        const taskId = parseInt(req.params.id as string, 10);
+        const userId = req.user!.id;
+
+        const taskMembers =  await taskService.getTaskLabels(taskId, userId);
+        res.status(200).json(taskMembers);
+    } catch (error: any){
+        console.error('getTaskLabels error: ', error);
+        res.status(error.status ?? 500).json({
+            message: error.message ?? 'Internal server error.'
+        })
+    }
+};
+
+export const addTaskLabel= async (req: AuthRequest, res: Response) : Promise<void> => {
+    try{
+        const {labelId} = req.body;
+        const taskId = parseInt(req.params.id as string, 10);
+        const userId = req.user!.id;
+        
+        if (!labelId) {
+            res.status(400).json({
+                message: 'Label ID is required.'
+            });
+            return;
+        }
+
+        if (!taskId){
+            res.status(400).json({
+                message: 'Choose a Task'
+            });
+            return;
+        }
+
+        await taskService.addTaskLabel(taskId, labelId, userId);
+        res.status(201).json({
+            message: 'Task label added successfully.',
+        });
+    } catch (error: any){
+        console.error('addTaskLabel error:', error);
+        res.status(error.status ?? 500).json({
+            message: error.message ?? 'Internal server error.'
+        });
+    }
+};
+
+export const removeTaskLabel = async (req: AuthRequest, res: Response) : Promise<void> => {
+    try{
+        const labelId = parseInt(req.params.labelId as string, 10);
+        const taskId = parseInt(req.params.id as string, 10);
+        const userId = req.user!.id;
+
+        if (!labelId) {
+            res.status(400).json({
+                message: 'Label ID is required.'
+            });
+            return;
+        }
+
+        if (!taskId){
+            res.status(400).json({
+                message: 'Choose a Task'
+            });
+            return;
+        }
+
+        await taskService.removeTaskLabel(taskId, labelId, userId);
+        res.status(200).json({
+            message: 'Removed successfully',
+        });
+    } catch (error: any) {
+        console.error('removeTaskLabel error:', error);
+        res.status(error.status ?? 500).json({
+            message: error.message ?? 'Internal server error.'
+        });
+    }
+};

@@ -2,6 +2,7 @@ import express from 'express';
 import { createBoard, getBoardByWorkspace, getBoardById, updateBoard, deleteBoard} from '../controllers/boardController';
 import { protect } from '../middlewares/authMiddleware';
 import listRoutes from './listRoutes';
+import labelRoutes from './labelRoutes';
 
 const router = express.Router({ mergeParams: true });
 
@@ -11,5 +12,6 @@ router.get('/:id', protect, getBoardById);
 router.put('/:id', protect, updateBoard);
 router.delete('/:id', protect, deleteBoard);
 router.use('/:boardId/lists', listRoutes);
+router.use('/:boardId/labels', labelRoutes);
 
 export default router;
