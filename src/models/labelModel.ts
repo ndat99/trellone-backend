@@ -12,7 +12,8 @@ const labelModel = {
         const query = `
             SELECT id, name, color
             FROM labels
-            WHERE board_id = $1;
+            WHERE board_id = $1
+            ORDER BY id ASC;
         `;
         const result = await pool.query(query, [boardId]);
         return result.rows;

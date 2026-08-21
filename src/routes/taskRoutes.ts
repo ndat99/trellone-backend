@@ -1,5 +1,5 @@
 import express from 'express';
-import { addTaskMember, archiveTask, createTask, deleteTask, getTask, getTaskById, getTaskMembers, moveTask, removeTaskMember, reorderTask, updateDetails } from '../controllers/taskController';
+import { addTaskLabel, addTaskMember, archiveTask, createTask, deleteTask, getTask, getTaskById, getTaskLabels, getTaskMembers, moveTask, removeTaskLabel, removeTaskMember, reorderTask, updateDetails } from '../controllers/taskController';
 import { protect } from '../middlewares/authMiddleware';
 
 const router = express.Router({ mergeParams: true });
@@ -16,4 +16,8 @@ router.patch('/:id/move', protect, moveTask);
 router.get('/:id/members/', protect, getTaskMembers);
 router.post('/:id/members/', protect, addTaskMember);
 router.delete('/:id/members/:userId', protect, removeTaskMember);
+
+router.get('/:id/labels/', protect, getTaskLabels);
+router.post('/:id/labels/', protect, addTaskLabel);
+router.delete('/:id/labels/:labelId', protect, removeTaskLabel);
 export default router;
