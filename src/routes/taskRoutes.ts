@@ -1,5 +1,7 @@
 import express from 'express';
-import { addTaskLabel, addTaskMember, archiveTask, createTask, deleteTask, getTask, getTaskById, getTaskLabels, getTaskMembers, moveTask, removeTaskLabel, removeTaskMember, reorderTask, updateDetails } from '../controllers/taskController';
+import { archiveTask, createTask, deleteTask, getTask, getTaskById, moveTask, reorderTask, updateDetails } from '../controllers/taskController';
+import { addTaskMember, getTaskMembers, removeTaskMember } from '../controllers/taskMemberController';
+import { addTaskLabel, getTaskLabels, removeTaskLabel} from '../controllers/taskLabelController';
 import { protect } from '../middlewares/authMiddleware';
 import { createItem, deleteItem, getChecklist, updateItem, reorderItem } from '../controllers/checklistController';
 

@@ -1,10 +1,7 @@
 import pool from "../config/db";
 import taskModel, { TaskRow } from "../models/taskModel";
 import boardMemberModel from "../models/boardMemberModel";
-import taskMemberModel, { TaskMemberRow } from "../models/taskMemberModel";
 import listModel from "../models/listModel";
-import labelModel from "../models/labelModel";
-import taskLabelModel, { TaskLabelRow } from "../models/taskLabelModel";
 
 const taskService = {
     checkMemberByListId: async (listId: number, userId: number) : Promise<void> => {
@@ -147,69 +144,6 @@ const taskService = {
             await pool.query('ROLLBACK');
             throw error;
         }
-    },
-
-    getTaskMembers: async (taskId: number, userId: number) : Promise<TaskMemberRow[]> => {
-        const task = await taskModel.findByTaskId(taskId);
-        if (!task) throw { status: 404, message: `Task not found.`};
-        
-        await taskService.checkMemberByListId(task.list_id, userId);
-        return taskMemberModel.findByTask(taskId);
-    },
-    
-    addTaskMember: async (taskId: number, targetUserId: number, userId: number) : Promise<void> => {
-        const task = await taskModel.findByTaskId(taskId);
-        if (!task) throw { status: 404, message: 'Task not found.'};
-        
-        await taskService.checkMemberByListId(task.list_id, userId);
-
-        const isTargetBoardMember = await boardMemberModel.memberCheckByListId(task.list_id, targetUserId);
-        if (!isTargetBoardMember){
-            throw { status: 400, message: 'Target user is not a member of this board.'};
-        }
-        
-        await taskMemberModel.add(taskId, targetUserId);
-    },
-
-    removeTaskMember: async (taskId: number, targetUserId: number, userId: number) : Promise<void> => {
-        const task = await taskModel.findByTaskId(taskId);
-        if (!task) throw { status: 404, message: 'Task not found.'};
-        
-        await taskService.checkMemberByListId(task.list_id, userId);
-        const deleted = await taskMemberModel.remove(taskId, targetUserId);
-        if (!deleted) throw { status: 404, message: 'Member not found in this task.'};
-    },
-
-    getTaskLabels: async (taskId: number, userId: number) : Promise<TaskLabelRow[]> => {
-        const task = await taskModel.findByTaskId(taskId);
-        if (!task) throw { status: 404, message: `Task not found.`};
-        
-        await taskService.checkMemberByListId(task.list_id, userId);
-        return taskLabelModel.findByTask(taskId);
-    },
-    
-    addTaskLabel: async (taskId: number, labelId: number, userId: number) : Promise<void> => {
-        const task = await taskModel.findByTaskId(taskId);
-        if (!task) throw { status: 404, message: 'Task not found.'};
-        
-        await taskService.checkMemberByListId(task.list_id, userId);
-
-        const labelBoardId = await labelModel.findBoardIdByLabelId(labelId);
-        const taskBoardId = await listModel.findBoardIdByListId(task.list_id);
-        if (labelBoardId !== taskBoardId){
-            throw { status: 400, message: 'This label is not a label of this board.'};
-        }
-        
-        await taskLabelModel.add(taskId, labelId);
-    },
-
-    removeTaskLabel: async (taskId: number, labelId: number, userId: number) : Promise<void> => {
-        const task = await taskModel.findByTaskId(taskId);
-        if (!task) throw { status: 404, message: 'Task not found.'};
-        
-        await taskService.checkMemberByListId(task.list_id, userId);
-        const deleted = await taskLabelModel.remove(taskId, labelId);
-        if (!deleted) throw { status: 404, message: 'Label not found in this task.'};
     }
 };
 

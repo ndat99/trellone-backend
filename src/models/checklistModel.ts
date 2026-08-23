@@ -61,7 +61,7 @@ const checklistModel = {
                 content = COALESCE($1, content),
                 is_done = COALESCE($2, is_done)
             WHERE id = $3 AND task_id = $4
-            RETURNING id, content, position;
+            RETURNING id, content, is_done, position;
         `;
         const result = await pool.query(query, [content ?? null, is_done ?? null, checklistId, taskId]);
         return result.rows[0] ?? null;
