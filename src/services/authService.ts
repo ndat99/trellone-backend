@@ -41,7 +41,7 @@ const authService = {
         }
         //cap token
         const secretKey = process.env.JWT_SECRET;
-        const token = jwt.sign({ id: user.id }, secretKey!, {expiresIn: '1d'});
+        const token = jwt.sign({ id: user.id }, secretKey!, {expiresIn: '7d'}); //7 days
         return {
             token,
             user: {
