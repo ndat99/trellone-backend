@@ -4,6 +4,7 @@ import { addTaskMember, getTaskMembers, removeTaskMember } from '../controllers/
 import { addTaskLabel, getTaskLabels, removeTaskLabel} from '../controllers/taskLabelController';
 import { protect } from '../middlewares/authMiddleware';
 import { createItem, deleteItem, getChecklist, updateItem, reorderItem } from '../controllers/checklistController';
+import { addComment, deleteComment, editComment, getComment } from '../controllers/commentController';
 
 const router = express.Router({ mergeParams: true });
 
@@ -33,5 +34,11 @@ router.get('/:id/checklists', protect, getChecklist);
 router.patch('/:id/checklists/:checklistId', protect, updateItem);
 router.delete('/:id/checklists/:checklistId', protect, deleteItem);
 router.patch('/:id/checklists/:checklistId/position', protect, reorderItem);
+
+//comment
+router.post('/:id/comments', protect, addComment);
+router.get('/:id/comments', protect, getComment);
+router.put('/:id/comments/:commentId', protect, editComment);
+router.delete('/:id/comments/:commentId', protect, deleteComment);
 
 export default router;
