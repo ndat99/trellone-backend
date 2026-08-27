@@ -17,7 +17,7 @@ export const createLabel = async (req: AuthRequest, res: Response) : Promise<voi
 
         if (!color) {
             res.status(400).json({
-                message: 'Label name is required.'
+                message: 'Label color is required.'
             });
             return;
         }
