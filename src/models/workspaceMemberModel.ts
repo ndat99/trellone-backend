@@ -1,4 +1,5 @@
 import pool from '../config/db';
+import { PoolClient } from 'pg';
 
 export interface WorkspaceMemberRow {
     workspace_id: number;
@@ -13,12 +14,12 @@ export type WorkspaceMemberWithUser = WorkspaceMemberRow & {
 };
 
 const workspaceMemberModel = {
-    addOwner: async (workspaceId: number, ownerId: number): Promise<void> => {
+    addOwner: async (workspaceId: number, ownerId: number, client: PoolClient): Promise<void> => {
         const query = `
             INSERT INTO workspace_members (workspace_id, user_id, role)
             VALUES ($1, $2, 'owner')
         `;
-        await pool.query(query, [workspaceId, ownerId]);
+        await client.query(query, [workspaceId, ownerId]);
     },
 
     findByWorkspace: async (workspaceId: number): Promise<WorkspaceMemberWithUser[]> => {

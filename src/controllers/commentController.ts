@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import commentService from '../services/commentService';
 
@@ -19,7 +19,7 @@ export const addComment = async (req: AuthRequest, res: Response) : Promise<void
 
         res.status(201).json({
             message: 'Comment added successfully.',
-            item: newComment
+            comment: newComment
         });
     } catch (error: any){
         console.error('addComment error:', error);
@@ -57,10 +57,10 @@ export const editComment = async (req: AuthRequest, res: Response) : Promise<voi
             return;
         }
 
-        const checklist = await commentService.editComment(commentId, taskId, content, userId);
+        const comment = await commentService.editComment(commentId, taskId, content, userId);
         res.status(200).json({
             message: 'Edited successfully',
-            checklist
+            comment
         });
     } catch (error: any){
         console.error('editComment error:', error);

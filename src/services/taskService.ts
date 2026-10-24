@@ -60,19 +60,22 @@ const taskService = {
         if (!existing) throw { status: 404, message: 'Task not found.' };
         await taskService.checkMemberByListId(existing.list_id, userId);
         
+        const client = await pool.connect();
         try{
-            await pool.query('BEGIN');
+            await client.query('BEGIN');
     
-            const deletedtask = await taskModel.delete(taskId, existing.list_id);
+            const deletedtask = await taskModel.delete(taskId, existing.list_id, client);
             if (!deletedtask) throw { status: 404, message: 'Task not found.'}
             const deletedPosition = deletedtask.position;
     
-            await taskModel.updatePositionAfterDelete(existing.list_id, deletedPosition);
-            await pool.query('COMMIT');
+            await taskModel.updatePositionAfterDelete(existing.list_id, deletedPosition, client);
+            await client.query('COMMIT');
             return deletedtask;
         } catch (error){
-            await pool.query('ROLLBACK');
+            await client.query('ROLLBACK');
             throw error;
+        } finally {
+            client.release();
         }
     },
 
@@ -100,17 +103,20 @@ const taskService = {
             return;
         }
         
+        const client = await pool.connect();
         try {
-            await pool.query('BEGIN');
-            await taskModel.updatePositionAfterMove(existing.list_id, taskId, oldPosition, newPosition);
-            await pool.query('COMMIT');
+            await client.query('BEGIN');
+            await taskModel.updatePositionAfterMove(existing.list_id, taskId, oldPosition, newPosition, client);
+            await client.query('COMMIT');
         } catch (error) {
-            await pool.query('ROLLBACK');
+            await client.query('ROLLBACK');
             throw error;
+        } finally {
+            client.release();
         }
     },
 
-    moveTask: async (taskId: number, targetListId: number, newPosition: number, userId: number) : Promise<TaskRow> => {
+    moveTask: async (taskId: number, targetListId: number, newPosition: number, userId: number) : Promise<TaskRow> => {     
         //lay task hien tai
         const existing = await taskModel.findByTaskId(taskId);
         if (!existing) throw { status: 404, message: 'Task not found.'};
@@ -127,22 +133,25 @@ const taskService = {
         if (newPosition < 0 || newPosition > maxPosition + 1){
             throw { status: 400, message: 'Position out of range.'};
         };
-
+        
+        const client = await pool.connect();
         try{
-            await pool.query('BEGIN');
+            await client.query('BEGIN');
 
             //shift cac task o list cu len (position - 1)
-            await taskModel.updatePositionAfterDelete(existing.list_id, existing.position);
+            await taskModel.updatePositionAfterDelete(existing.list_id, existing.position, client);
             //tao cho trong cho task trong target list
-            await taskModel.emptyTargetPosition(targetListId, newPosition);
+            await taskModel.emptyTargetPosition(targetListId, newPosition, client);
             //di chuyen task sang target list
-            const movedTask = await taskModel.moveToList(taskId, targetListId, newPosition);
+            const movedTask = await taskModel.moveToList(taskId, targetListId, newPosition, client);
 
-            await pool.query('COMMIT');
+            await client.query('COMMIT');
             return movedTask;
         } catch (error){
-            await pool.query('ROLLBACK');
+            await client.query('ROLLBACK');
             throw error;
+        } finally {
+            client.release();
         }
     }
 };

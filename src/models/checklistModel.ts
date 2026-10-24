@@ -1,3 +1,4 @@
+import { PoolClient } from 'pg';
 import pool from '../config/db';
 
 export interface ChecklistRow {
@@ -67,16 +68,16 @@ const checklistModel = {
         return result.rows[0] ?? null;
     },
 
-    delete: async (checklistId: number, taskId: number) : Promise<ChecklistRow | null> =>{
-        const deleteResult = await pool.query(
+    delete: async (checklistId: number, taskId: number, client: PoolClient) : Promise<ChecklistRow | null> =>{
+        const deleteResult = await client.query(
             `DELETE FROM checklist_items WHERE id = $1 AND task_id = $2
             RETURNING id, content, position`, [checklistId, taskId]
         );
         return deleteResult.rows[0] ?? null;
     },
 
-    updatePositionAfterDelete: async (taskId: number, deletedPosition: number) : Promise<void> => {
-        await pool.query(
+    updatePositionAfterDelete: async (taskId: number, deletedPosition: number, client: PoolClient) : Promise<void> => {
+        await client.query(
             `UPDATE checklist_items
             SET position = position - 1
             WHERE task_id = $1
@@ -104,17 +105,17 @@ const checklistModel = {
         return currentPosition;
     },
 
-    updatePositionAfterMove: async (taskId: number, checklistId: number, oldPosition: number, newPosition: number) : Promise<void> => {
+    updatePositionAfterMove: async (taskId: number, checklistId: number, oldPosition: number, newPosition: number, client: PoolClient) : Promise<void> => {
         //neu di chuyen len tren -> cac checklist [newPos, oldPos) + 1
         if (newPosition < oldPosition){
-            await pool.query(
+            await client.query(
                 `UPDATE checklist_items SET position = position + 1
                 WHERE task_id = $1
                     AND position >= $2
                     AND position < $3`, [taskId, newPosition, oldPosition]
             );
         } else {    //neu di chuyen xuong duoi -> cac checklist (oldPos, newPos] - 1
-            await pool.query(
+            await client.query(
                 `UPDATE checklist_items SET position = position - 1
                 WHERE task_id = $1
                     AND position > $2
@@ -123,7 +124,7 @@ const checklistModel = {
         }
 
         //update position cua checklist can di chuyen
-        await pool.query(`
+        await client.query(`
             UPDATE checklist_items SET position = $1
             WHERE id = $2 AND task_id = $3`, [newPosition, checklistId, taskId]
         );
