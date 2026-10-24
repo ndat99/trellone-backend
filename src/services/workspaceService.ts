@@ -8,16 +8,19 @@ const workspaceService = {
     },
 
     createWorkspace: async (name: string, ownerId: number) : Promise<WorkspaceRow> => {
+        const client = await pool.connect();
         try {
-            await pool.query('BEGIN');
-            const newWorkspace = await workspaceModel.create(name, ownerId);
-            await workspaceMemberModel.addOwner(newWorkspace.id, ownerId);
+            await client.query('BEGIN');
+            const newWorkspace = await workspaceModel.create(name, ownerId, client);
+            await workspaceMemberModel.addOwner(newWorkspace.id, ownerId, client);
 
-            await pool.query('COMMIT');
+            await client.query('COMMIT');
             return newWorkspace;
         } catch (error){
-            await pool.query('ROLLBACK');
+            await client.query('ROLLBACK');
             throw error;    //bubble up cho controller bat
+        } finally {
+            client.release();
         }
     },
 

@@ -39,20 +39,22 @@ const checklistService = {
 
     deleteItem: async (checklistId: number, taskId: number, userId: number) : Promise<ChecklistRow> => {
         await checklistService.checkAccessByTaskId(taskId, userId);
-        
+        const client = await pool.connect();
         try{
-            await pool.query('BEGIN');
+            await client.query('BEGIN');
     
-            const deletedItem = await checklistModel.delete(checklistId, taskId);
+            const deletedItem = await checklistModel.delete(checklistId, taskId, client);
             if (!deletedItem) throw { status: 404, message: 'Checklist item not found.'}
             const deletedPosition = deletedItem.position;
     
-            await checklistModel.updatePositionAfterDelete(taskId, deletedPosition);
-            await pool.query('COMMIT');
+            await checklistModel.updatePositionAfterDelete(taskId, deletedPosition, client);
+            await client.query('COMMIT');
             return deletedItem;
         } catch (error){
-            await pool.query('ROLLBACK');
+            await client.query('ROLLBACK');
             throw error;
+        } finally {
+            client.release();
         }
     },
 
@@ -75,14 +77,17 @@ const checklistService = {
         };
 
         if (oldPosition === newPosition) return;
-        
+
+        const client = await pool.connect();
         try {
-            await pool.query('BEGIN');
-            await checklistModel.updatePositionAfterMove(taskId, checklistId, oldPosition, newPosition);
-            await pool.query('COMMIT');
+            await client.query('BEGIN');
+            await checklistModel.updatePositionAfterMove(taskId, checklistId, oldPosition, newPosition, client);
+            await client.query('COMMIT');
         } catch (error) {
-            await pool.query('ROLLBACK');
+            await client.query('ROLLBACK');
             throw error;
+        } finally {
+            client.release();
         }
     },
 };

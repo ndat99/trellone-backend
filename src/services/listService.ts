@@ -36,27 +36,31 @@ const listService = {
 
     deleteList: async (boardId: number, userId: number, listId: number) : Promise<ListRow> => {
         await listService.checkMember(boardId, userId);
-        
+        const client = await pool.connect();
+
         try{
-            await pool.query('BEGIN');
+            await client.query('BEGIN');
     
-            const deletedList = await listModel.delete(listId, boardId);
+            const deletedList = await listModel.delete(listId, boardId, client);
             if (!deletedList) {
                 throw { status: 404, message: 'List not found.'}
             }
             const deletedPosition = deletedList.position;
     
-            await listModel.updatePositionAfterDelete(boardId, deletedPosition);
-            await pool.query('COMMIT');
+            await listModel.updatePositionAfterDelete(boardId, deletedPosition, client);
+            await client.query('COMMIT');
             return deletedList;
         } catch (error){
-            await pool.query('ROLLBACK');
+            await client.query('ROLLBACK');
             throw error;
+        } finally {
+            client.release();
         }
     },
 
     reorderList: async (boardId: number, listId: number, newPosition: number, userId: number) : Promise<void> => {
         await listService.checkMember(boardId, userId);
+
         //validate newPosition hop le
         if (newPosition === undefined || newPosition === null) {
             throw { status: 400, message: 'newPosition is required.' }
@@ -76,14 +80,16 @@ const listService = {
             return;
         }
         
+        const client = await pool.connect();
         try {
-
-            await pool.query('BEGIN');
-            await listModel.updatePositionAfterMove(boardId, listId, oldPosition, newPosition);
-            await pool.query('COMMIT');
+            await client.query('BEGIN');
+            await listModel.updatePositionAfterMove(boardId, listId, oldPosition, newPosition, client);
+            await client.query('COMMIT');
         } catch (error) {
-            await pool.query('ROLLBACK');
+            await client.query('ROLLBACK');
             throw error;
+        } finally {
+            client.release();
         }
     }
 };

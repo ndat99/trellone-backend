@@ -1,4 +1,5 @@
 import pool from '../config/db';
+import { PoolClient } from 'pg';
 
 export interface BoardRow {
     id: number;
@@ -37,14 +38,14 @@ const boardModel = {
         return result.rows;
     },
 
-    create: async (name: string, workspaceId: number) : Promise<BoardRow> => {
+    create: async (name: string, workspaceId: number, client: PoolClient) : Promise<BoardRow> => {
         const query = `
             INSERT INTO boards (name, workspace_id)
             VALUES ($1, $2)
             RETURNING *;
         `;
         const values = [name, workspaceId];
-        const boardResult = await pool.query(query, values);
+        const boardResult = await client.query(query, values);
         return boardResult.rows[0];
     },
 

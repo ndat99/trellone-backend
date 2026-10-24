@@ -1,3 +1,4 @@
+import { PoolClient } from 'pg';
 import pool from '../config/db';
 
 export interface BoardMemberRow {
@@ -14,13 +15,13 @@ export type BoardMemberWithUser = BoardMemberRow & {
 }
 
 const boardMemberModel = {
-    addOwner: async (boardId: number, userId: number) : Promise<void> => {
+    addOwner: async (boardId: number, userId: number, client: PoolClient) : Promise<void> => {
         const query = `
             INSERT INTO board_members (board_id, user_id, role, joined_at)
             VALUES ($1, $2, 'owner', CURRENT_TIMESTAMP);
         `;
         const values = [boardId, userId];
-        await pool.query(query, values);
+        await client.query(query, values);
     },
 
     memberCheck: async (boardId: number, userId: number) : Promise<boolean> => {

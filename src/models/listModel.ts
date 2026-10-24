@@ -1,3 +1,4 @@
+import { PoolClient } from 'pg';
 import pool from '../config/db';
 
 export interface ListRow {
@@ -63,16 +64,16 @@ const listModel = {
         return result.rows[0] ?? null;
     },
 
-    delete: async (listId: number, boardId: number) : Promise<ListRow | null> =>{
-        const deleteResult = await pool.query(
+    delete: async (listId: number, boardId: number, client: PoolClient) : Promise<ListRow | null> =>{
+        const deleteResult = await client.query(
             `DELETE FROM lists WHERE id = $1 AND board_id = $2
             RETURNING id, name, position`, [listId, boardId]
         );
         return deleteResult.rows[0] ?? null;
     },
 
-    updatePositionAfterDelete: async (boardId: number, deletedPosition: number) : Promise<void> => {
-        await pool.query(
+    updatePositionAfterDelete: async (boardId: number, deletedPosition: number, client: PoolClient) : Promise<void> => {
+        await client.query(
             `UPDATE lists
             SET position = position - 1
             WHERE board_id = $1
@@ -100,17 +101,17 @@ const listModel = {
         return currentPosition;
     },
 
-    updatePositionAfterMove: async (boardId: number, listId: number, oldPosition: number, newPosition: number) : Promise<void> => {
+    updatePositionAfterMove: async (boardId: number, listId: number, oldPosition: number, newPosition: number, client: PoolClient) : Promise<void> => {
         //neu di chuyen len tren (sang trai) -> cac list [newPos, oldPos) + 1
         if (newPosition < oldPosition){
-            await pool.query(
+            await client.query(
                 `UPDATE lists SET position = position + 1
                 WHERE board_id = $1
                     AND position >= $2
                     AND position < $3`, [boardId, newPosition, oldPosition]
             );
         } else {    //neu di chuyen xuong duoi (sang phai) -> cac list (oldPos, newPos] - 1
-            await pool.query(
+            await client.query(
                 `UPDATE lists SET position = position - 1
                 WHERE board_id = $1
                     AND position > $2
@@ -119,7 +120,7 @@ const listModel = {
         }
 
         //update position cua list can di chuyen
-        await pool.query(`
+        await client.query(`
             UPDATE lists SET position = $1, updated_at = CURRENT_TIMESTAMP
             WHERE id = $2 AND board_id = $3`, [newPosition, listId, boardId]
         );

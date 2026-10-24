@@ -1,3 +1,4 @@
+import { PoolClient } from 'pg';
 import pool from '../config/db';
 
 export interface TaskRow {
@@ -60,8 +61,8 @@ const taskModel = {
         return newTask;
     },
 
-    delete: async (taskId: number, listId: number) : Promise<TaskRow | null> =>{
-        const deleteResult = await pool.query(
+    delete: async (taskId: number, listId: number, client: PoolClient) : Promise<TaskRow | null> =>{
+        const deleteResult = await client.query(
             `DELETE FROM tasks WHERE id = $1 AND list_id = $2
             RETURNING id, name, position`, [taskId, listId]
         );
@@ -116,8 +117,8 @@ const taskModel = {
         return result.rows[0] ?? null;
     },
 
-    updatePositionAfterDelete: async (listId: number, deletedPosition: number) : Promise<void> => {
-        await pool.query(
+    updatePositionAfterDelete: async (listId: number, deletedPosition: number, client: PoolClient) : Promise<void> => {
+        await client.query(
             `UPDATE tasks
             SET position = position - 1
             WHERE list_id = $1
@@ -145,17 +146,17 @@ const taskModel = {
         return currentPosition;
     },
 
-    updatePositionAfterMove: async (listId: number, taskId: number, oldPosition: number, newPosition: number) : Promise<void> => {
+    updatePositionAfterMove: async (listId: number, taskId: number, oldPosition: number, newPosition: number, client: PoolClient) : Promise<void> => {
         //neu di chuyen len tren (sang trai) -> cac list [newPos, oldPos) + 1
         if (newPosition < oldPosition){
-            await pool.query(
+            await client.query(
                 `UPDATE tasks SET position = position + 1
                 WHERE list_id = $1
                     AND position >= $2
                     AND position < $3`, [listId, newPosition, oldPosition]
             );
         } else {    //neu di chuyen xuong duoi (sang phai) -> cac list (oldPos, newPos] - 1
-            await pool.query(
+            await client.query(
                 `UPDATE tasks SET position = position - 1
                 WHERE list_id = $1
                     AND position > $2
@@ -164,21 +165,21 @@ const taskModel = {
         }
 
         //update position cua list can di chuyen
-        await pool.query(`
+        await client.query(`
             UPDATE tasks SET position = $1, updated_at = CURRENT_TIMESTAMP
             WHERE id = $2 AND list_id = $3`, [newPosition, taskId, listId]
         );
     },
 
-    emptyTargetPosition: async (listId: number, position: number): Promise<void> => {
-        await pool.query(
+    emptyTargetPosition: async (listId: number, position: number, client: PoolClient): Promise<void> => {
+        await client.query(
             `UPDATE tasks SET position = position + 1
             WHERE list_id = $1 AND position >= $2`, [listId, position]
         );
     },
 
-    moveToList: async (taskId: number, targetListId: number, newPosition: number) : Promise<TaskRow> => {
-        const result = await pool.query(
+    moveToList: async (taskId: number, targetListId: number, newPosition: number, client: PoolClient) : Promise<TaskRow> => {
+        const result = await client.query(
             `UPDATE tasks
             SET list_id = $1, position = $2
             WHERE id = $3

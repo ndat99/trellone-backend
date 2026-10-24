@@ -16,16 +16,19 @@ const boardService = {
     },
 
     createBoard: async (userId: number, name: string, workspaceId: number) : Promise<BoardRow> => {
+        const client = await pool.connect();
         try{
-            await pool.query('BEGIN');
-            const newBoard = await boardModel.create(name, workspaceId);
-            await boardMemberModel.addOwner(newBoard.id, userId);
+            await client.query('BEGIN');
+            const newBoard = await boardModel.create(name, workspaceId, client);
+            await boardMemberModel.addOwner(newBoard.id, userId, client);
 
-            await pool.query('COMMIT');
+            await client.query('COMMIT');
             return newBoard;
         } catch (error){
-            await pool.query('ROLLBACK');
+            await client.query('ROLLBACK');
             throw error;
+        } finally {
+            client.release();
         }
     },
 

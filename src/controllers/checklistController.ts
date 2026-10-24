@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import checklistService from '../services/checklistService';
 

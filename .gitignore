@@ -25,4 +25,5 @@ desktop.ini
 *.swp
 *.swo
 log.md
+analysis.md
 *.sql
