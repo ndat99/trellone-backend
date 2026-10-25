@@ -10,12 +10,12 @@ const workspaceMemberService = {
     },
 
     getWorkspaceMembers: async (workspaceId: number, userId: number) : Promise<WorkspaceMemberWithUser[]> => {
-        await workspaceMemberService.checkRole(workspaceId, userId, ['owner', 'admin']);
+        await workspaceMemberService.checkRole(workspaceId, userId, ['owner', 'admin', 'member']);
         return workspaceMemberModel.findByWorkspace(workspaceId);
     },
     
     inviteWorkspaceMember: async (workspaceId: number, targetUsername: string, requesterUserId: number) : Promise<WorkspaceMemberRow> => {
-        await workspaceMemberService.checkRole(workspaceId, requesterUserId, ['owner']);
+        await workspaceMemberService.checkRole(workspaceId, requesterUserId, ['owner', 'admin']);
 
         //tim theo username
         const targetUser = await userModel.getByUsername(targetUsername);

@@ -1,6 +1,7 @@
 import pool from '../config/db';
 import boardMemberModel from '../models/boardMemberModel';
 import boardModel, { BoardRow, BoardWithRole } from '../models/boardModel';
+import workspaceMemberService from './workspaceMemberService';
 
 const boardService = {
     getBoardByWorkspace: async (userId: number, workspaceId: number) : Promise<BoardWithRole[]> => {
@@ -16,6 +17,8 @@ const boardService = {
     },
 
     createBoard: async (userId: number, name: string, workspaceId: number) : Promise<BoardRow> => {
+        await workspaceMemberService.checkRole(workspaceId, userId, ['owner', 'admin']);
+
         const client = await pool.connect();
         try{
             await client.query('BEGIN');
@@ -33,6 +36,14 @@ const boardService = {
     },
 
     updateBoard: async (name: string, bgColor: string, bgImgUrl: string, userId: number, boardId: number) : Promise<BoardRow> => {
+        const existing = await boardModel.findById(userId, boardId);
+        if (!existing){
+            throw { status: 404, message: 'Board not found or access denied.'};
+        }
+
+        if (!['owner', 'admin'].includes(existing.role)){
+            throw { status: 403, message: 'Only board owners and admins can update this board.'};
+        }
         const board = await boardModel.update(name, bgColor, bgImgUrl, boardId, userId);
         if (!board) {
             throw { status: 404, message: 'Board not found or access denied.'}
