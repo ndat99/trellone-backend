@@ -88,6 +88,7 @@ const boardMemberModel = {
             UPDATE board_members
             SET role = $1
             WHERE board_id = $2 AND user_id = $3
+                AND role != 'owner'
             RETURNING board_id, user_id, role
             `, [newRole, boardId, userId]
         );

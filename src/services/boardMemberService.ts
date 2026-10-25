@@ -34,6 +34,15 @@ const boardMemberService = {
             throw { status: 400, message: 'Invalid role. Must be admin or member.'};
         }
         
+        const targetRole = await boardMemberModel.getMemberRole(boardId, targetUserId);
+        if (!targetRole){
+            throw { status: 404, message: 'Member not found.'};
+        }
+
+        if (targetRole === 'owner'){
+            throw { status: 403, message: 'Cannot change the board owner role'};
+        }
+
         const updated = await boardMemberModel.updateRole(boardId, targetUserId, newRole);
         if (!updated) throw { status: 404, message: 'Member not found.'};
         return updated;

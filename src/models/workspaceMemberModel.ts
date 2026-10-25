@@ -68,6 +68,7 @@ const workspaceMemberModel = {
             UPDATE workspace_members
             SET role = $1
             WHERE workspace_id = $2 AND user_id = $3
+                AND role != 'owner'
             RETURNING workspace_id, user_id, role
             `, [newRole, workspaceId, userId]
         );
