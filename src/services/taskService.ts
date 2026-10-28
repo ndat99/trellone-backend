@@ -1,5 +1,6 @@
 import pool from "../config/db";
-import taskModel, { TaskRow } from "../models/taskModel";
+import taskModel, { TaskRow, ArchivedTaskRow } from "../models/taskModel";
+import boardModel from "../models/boardModel";
 import boardMemberModel from "../models/boardMemberModel";
 import listModel from "../models/listModel";
 
@@ -23,6 +24,15 @@ const taskService = {
 
         await taskService.checkMemberByListId(task.list_id, userId);
         return task;
+    },
+
+    getArchivedTasksByBoard: async (boardId: number, userId: number, limit: number, offset: number) : Promise<ArchivedTaskRow[]> => {
+        const board = await boardModel.findById(userId, boardId);
+
+        if (!board){
+            throw { status: 404, message: 'Board not found or access denied.'};
+        }
+        return taskModel.findArchivedByBoard(boardId, limit, offset);
     },
 
     createTask: async (listId: number, name: string, userId: number) : Promise<TaskRow> => {

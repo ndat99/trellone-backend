@@ -17,6 +17,14 @@ export interface TaskRow {
     is_archived: boolean
 }
 
+export interface ArchivedTaskRow{
+    id: number;
+    name: string;
+    list_id: number;
+    list_name: string;
+    position: number;
+}
+
 const taskModel = {
     findByList: async (listId: number): Promise<TaskRow[]> => {
         const query = `
@@ -35,6 +43,26 @@ const taskModel = {
             [taskId]
         );
         return result.rows[0] ?? null;
+    },
+
+    findArchivedByBoard: async (boardId: number, limit: number, offset: number) : Promise<ArchivedTaskRow[]> => {
+        const query = `
+            SELECT t.id, t.name, t.list_id,
+                l.name AS list_name, t.position
+            FROM tasks t
+            JOIN lists l ON l.id = t.list_id
+            WHERE l.board_id = $1
+                AND t.is_archived = TRUE
+            ORDER BY l.position ASC, t.position ASC, t.id ASC
+            LIMIT $2 OFFSET $3;
+        `;
+
+        const result = await await pool.query<ArchivedTaskRow>(
+            query,
+            [boardId, limit, offset]
+        );
+
+        return result.rows;
     },
 
     findNextPosition: async (listId: number) : Promise<number> => {

@@ -4,6 +4,7 @@ import { protect } from '../middlewares/authMiddleware';
 import listRoutes from './listRoutes';
 import labelRoutes from './labelRoutes';
 import { getBoardMembers, inviteBoardMember, removeBoardMember, updateBoardMemberRole } from '../controllers/boardMemberController';
+import { getArchivedTasksByBoard } from '../controllers/taskController';
 
 const router = express.Router({ mergeParams: true });
 
@@ -19,4 +20,6 @@ router.post('/:id/members', protect, inviteBoardMember);
 router.get('/:id/members', protect, getBoardMembers);
 router.put('/:id/members/:userId', protect, updateBoardMemberRole);
 router.delete('/:id/members/:userId', protect, removeBoardMember);
+
+router.get('/:id/archived-tasks', protect, getArchivedTasksByBoard);
 export default router;

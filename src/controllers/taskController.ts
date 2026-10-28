@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import taskService from '../services/taskService';
+import { off } from 'node:cluster';
 
 export const createTask = async (req: AuthRequest, res: Response) : Promise<void> => {
     try{
@@ -71,6 +72,39 @@ export const getTaskById =  async (req: AuthRequest, res: Response) : Promise<vo
         res.status(error.status ?? 500).json({
             message: error.message ?? 'Internal server error.'
         })
+    }
+};
+
+export const getArchivedTasksByBoard = async (req: AuthRequest, res: Response): Promise<void> => {
+    try{
+        const boardId = Number(req.params.id);  //ep kieu
+        const userId = req.user!.id;
+
+        const limit = req.query.limit === undefined ? 20 : Number(req.query.limit); //limit va offset sau dau ?
+        const offset = req.query.offset === undefined ? 0 : Number(req.query.offset);
+
+        if (!Number.isSafeInteger(boardId) || boardId <= 0) {
+            res.status(400).json({
+                message: 'Invalid board ID.'
+            });
+            return;
+        }
+
+        if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100 || !Number.isSafeInteger(offset) || offset < 0){
+            res.status(400).json({
+                message: 'limit must be 1-100 and offset must be a non-negative integer.'
+            });
+            return;
+        }
+
+        const tasks = await taskService.getArchivedTasksByBoard(boardId, userId, limit, offset);
+        res.status(200).json(tasks);
+    } catch (error: any){
+        console.error('getArchivedTasksByBoard error:', error);
+        
+        res.status(error.status ?? 500).json({
+            message: error.message ?? 'Internal server error.'
+        });
     }
 };
 
