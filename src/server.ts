@@ -6,6 +6,8 @@ import boardRoutes from './routes/boardRoutes';
 import pool from './config/db';
 import listRoutes from './routes/listRoutes';
 import taskRoutes from './routes/taskRoutes';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerDocument } from './config/swagger';
 
 
 const app = express();  //khoi tao ud express
@@ -16,6 +18,21 @@ if (!process.env.JWT_SECRET) {
 
 app.use(cors()); //cho phep domain khac goi API
 app.use(express.json()) //dich JSON tu frontend
+
+app.get('/openapi.json', (req, res) => {  //tai lieu OpenAPI duoi dang JSON
+  res.json(swaggerDocument);
+});
+app.use(
+  '/api-docs',  //giao dien Swagger UI
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerDocument, {
+    swaggerOptions: {
+      validatorUrl: null,
+      displayRequestDuration: true
+    }
+  })
+);
+
 app.use('/api/auth', authRoutes); //signup API
 app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/boards', boardRoutes);
