@@ -2,6 +2,7 @@
 // Response schemas match the current controller envelopes and SQL projections.
 type Schema = Record<string, unknown>;
 type Parameter = Record<string, unknown>;
+type SecurityRequirement = Record<string, string[]>;
 
 const ref = (name: string): Schema => ({ $ref: '#/components/schemas/' + name });
 const arrayOf = (name: string): Schema => ({ type: 'array', items: ref(name) });
@@ -14,6 +15,10 @@ const date: Schema = { type: 'string', format: 'date-time', example: '2026-10-28
 const nullableDate: Schema = { ...date, nullable: true };
 const color: Schema = { type: 'string', maxLength: 10, nullable: true, example: '#8da87e' };
 const message: Schema = { type: 'string', example: 'Operation completed successfully.' };
+const accessToken: Schema = {
+    type: 'string', example: '<accessToken returned by login or refresh>',
+    description: 'HS256 JWT valid for at most 15 minutes and never beyond the session expiry. Copy the actual response value into Authorize, without the Bearer prefix.'
+};
 const role: Schema = { type: 'string', enum: ['owner', 'admin', 'member'], example: 'member' };
 const named = { id, name };
 const positioned = { ...named, position };
@@ -63,7 +68,15 @@ const nameInput = (maxLength: number): Schema => object({
 const wrap = (key: string, schema: string): Schema => object({ message, [key]: ref(schema) });
 
 const schemas: Record<string, Schema> = {
-    Error: object({ message: { type: 'string', example: 'Access denied.' } }),
+    Error: object({
+        message: { type: 'string', example: 'Access denied.' },
+        code: {
+            type: 'string',
+            enum: ['ACCESS_TOKEN_EXPIRED', 'ACCESS_TOKEN_INVALID', 'REFRESH_TOKEN_INVALID'],
+            example: 'ACCESS_TOKEN_EXPIRED',
+            description: 'Optional machine-readable auth error code. Other errors may only include message.'
+        }
+    }, ['message']),
     Message: object({ message }),
     Health: object({
         status: { type: 'string', example: 'OK' },
@@ -73,12 +86,11 @@ const schemas: Record<string, Schema> = {
     User: object({ ...user, created_at: date }),
     LoginResponse: object({
         message: { type: 'string', example: 'Login successful' },
-        token: {
-            type: 'string', example: '<JWT returned by login>',
-            description: 'Copy the actual response token into Authorize, without the Bearer prefix.'
-        },
+        accessToken,
         user: ref('LoginUser')
     }),
+    RefreshResponse: object({ accessToken }),
+    LogoutResponse: object({ message: { type: 'string', example: 'Logged out successfully.' } }),
     NamedEntity: object(named),
     PositionedEntity: object(positioned),
     WorkspaceSummary: object({ ...named, ...timestamps }),
@@ -120,7 +132,8 @@ const schemas: Record<string, Schema> = {
         name: { type: 'string', minLength: 1, maxLength: 100 }
     }),
     LoginInput: object({
-        username: { type: 'string' }, password: { type: 'string', format: 'password' }
+        username: { type: 'string', minLength: 1 },
+        password: { type: 'string', format: 'password', minLength: 1 }
     }),
     WorkspaceInput: nameInput(100),
     BoardInput: nameInput(100),
@@ -168,13 +181,24 @@ const pathId = (name: string, description: string, example = 1): Parameter => ({
 const jsonResponse = (description: string, schema: Schema): Schema => ({
     description, content: { 'application/json': { schema } }
 });
+const refreshCookieHeader: Schema = {
+    description: 'Stores or replaces the opaque refresh token. HttpOnly; SameSite=Lax; Path=/api/auth; expires with the session, 7 days after login. Secure is added in production. The raw refresh token is never returned in JSON.',
+    schema: { type: 'string' },
+    example: 'trellone_refresh=<opaque-refresh-token>; Path=/api/auth; Expires=<session-expiry>; HttpOnly; SameSite=Lax'
+};
+const clearedRefreshCookieHeader: Schema = {
+    description: 'Expires trellone_refresh using the same cookie path and security attributes. Secure is added in production.',
+    schema: { type: 'string' },
+    example: 'trellone_refresh=; Path=/api/auth; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax'
+};
+const trustedOriginDescription = 'Requires an Origin matching FRONTEND_ORIGIN or API_ORIGIN (defaults: http://localhost:5173 and http://localhost:3636). Missing or untrusted Origin returns 403. The browser supplies Origin automatically; in Postman, add an allowed Origin manually.';
 const errorDefinitions: Record<number, { name: string; description: string }> = {
     400: { name: 'BadRequest', description: 'Invalid/missing data, invalid role, or position out of range.' },
-    401: { name: 'Unauthorized', description: 'Missing/invalid/expired Bearer JWT, or invalid login credentials.' },
-    403: { name: 'Forbidden', description: 'Membership or role is insufficient, or the owner is protected.' },
+    401: { name: 'Unauthorized', description: 'Missing/invalid/expired Bearer JWT, invalid login credentials, or missing/invalid/expired/reused refresh token or revoked session. Auth errors may include code.' },
+    403: { name: 'Forbidden', description: 'Membership or role is insufficient, the owner is protected, or login/refresh/logout has a missing or untrusted Origin.' },
     404: { name: 'NotFound', description: 'Resource/member not found, or access is not disclosed.' },
     409: { name: 'Conflict', description: 'The user is already a member.' },
-    429: { name: 'TooManyRequests', description: 'Too many login requests from this IP. Retry after the indicated wait.' },
+    429: { name: 'TooManyRequests', description: 'Too many login or refresh requests from this IP. Retry after the indicated wait.' },
     500: { name: 'InternalServerError', description: 'Unexpected server or database error.' }
 };
 
@@ -183,10 +207,14 @@ interface OperationOptions {
     tag: string;
     summary: string;
     response: Schema;
+    responseDescription?: string;
+    responseHeaders?: Record<string, Schema>;
+    responseOverrides?: Record<number, Schema>;
     description?: string;
     status?: 200 | 201;
     errors?: number[];
     public?: boolean;
+    security?: SecurityRequirement[];
     request?: {
         schema: string;
         example: unknown;
@@ -199,7 +227,9 @@ const operation = (options: OperationOptions) => ({
     tags: [options.tag],
     summary: options.summary,
     ...(options.description ? { description: options.description } : {}),
-    ...(options.public ? { security: [] } : {}),
+    ...(options.security !== undefined
+        ? { security: options.security }
+        : options.public ? { security: [] } : {}),
     ...(options.request ? {
         requestBody: {
             required: true,
@@ -214,13 +244,17 @@ const operation = (options: OperationOptions) => ({
         }
     } : {}),
     responses: {
-        [options.status ?? 200]: jsonResponse(
-            options.status === 201 ? 'Created successfully.' : 'Request completed successfully.',
-            options.response
-        ),
+        [options.status ?? 200]: {
+            ...jsonResponse(
+                options.responseDescription ?? (options.status === 201 ? 'Created successfully.' : 'Request completed successfully.'),
+                options.response
+            ),
+            ...(options.responseHeaders ? { headers: options.responseHeaders } : {})
+        },
         ...Object.fromEntries((options.errors ?? [401, 500]).map(status => [
             status, { $ref: '#/components/responses/' + errorDefinitions[status].name }
-        ]))
+        ])),
+        ...options.responseOverrides
     }
 });
 
@@ -231,8 +265,11 @@ export const swaggerDocument = {
         version: '1.0.0',
         description: [
             'REST API for the Trellone task management application.',
-            'Start with signup or login. Copy the actual login response token into Authorize; enter the token only, without Bearer.',
-            'Protected operations inherit bearerAuth. Health, signup, and login are public.',
+            'Login returns accessToken and user in JSON, and sets the HttpOnly trellone_refresh cookie. Access JWTs live for at most 15 minutes. Sessions expire 7 days after login; refresh does not extend this deadline. Auth responses use Cache-Control: no-store.',
+            'Protected operations inherit bearerAuth. Health, signup, and login do not require Bearer auth. Refresh uses the refresh cookie, even when the access token has expired. Logout accepts an optional refresh cookie.',
+            'Swagger test flow: open /api-docs on the allowed backend origin, execute login, then paste accessToken into Authorize without the Bearer prefix. Execute refresh to rotate the browser cookie, then manually replace the Bearer value in Authorize with the returned accessToken. Execute the logout endpoint to revoke the session.',
+            'The browser stores and sends the HttpOnly cookie automatically for this same-origin Swagger UI. Do not paste refresh tokens into Authorize or try to set Cookie/Origin headers in Swagger UI. Inspect cookies in browser DevTools; use Postman to replay an old refresh token or test a missing/untrusted Origin.',
+            'Login, refresh, and logout require a trusted Origin. Swagger sends the backend page origin automatically; Postman requires a manually supplied allowed Origin. Already issued access tokens remain valid until exp after logout or refresh-token reuse. The Logout button inside Authorize only forgets the Bearer value; it does not call the logout endpoint.',
             'Paths follow the canonical URLs in the Postman collection. Existing nested route aliases use the same handlers.',
             'Schemas describe the API contract; input validation and authorization are enforced by the backend.'
         ].join('\n\n')
@@ -240,7 +277,7 @@ export const swaggerDocument = {
     servers: [{ url: '/api', description: 'Current backend origin and port' }],
     tags: [
         { name: 'Health', description: 'Server status.' },
-        { name: 'Auth', description: 'Signup, login, and current account.' },
+        { name: 'Auth', description: 'Signup, login, refresh token rotation, logout, and current account.' },
         { name: 'Workspaces', description: 'Owned and shared workspaces.' },
         { name: 'Workspace Members', description: 'Workspace invitations and roles.' },
         { name: 'Boards', description: 'Board metadata and backgrounds.' },
@@ -257,7 +294,11 @@ export const swaggerDocument = {
         securitySchemes: {
             bearerAuth: {
                 type: 'http', scheme: 'bearer', bearerFormat: 'JWT',
-                description: 'Paste the JWT returned by login. Do not include the Bearer prefix.'
+                description: 'Paste accessToken returned by login or refresh, without the Bearer prefix. Update this value manually after refresh.'
+            },
+            cookieAuth: {
+                type: 'apiKey', in: 'cookie', name: 'trellone_refresh',
+                description: 'Opaque HttpOnly refresh token managed by the browser through Set-Cookie. First execute login on this backend origin; leave the cookie value in Authorize empty. Swagger UI cannot manually set the Cookie header.'
             }
         },
         schemas,
@@ -267,7 +308,7 @@ export const swaggerDocument = {
                 ...(Number(status) === 429 ? {
                     headers: {
                         'Retry-After': {
-                            description: 'Seconds remaining before retrying login.',
+                            description: 'Seconds remaining before retrying login or refresh.',
                             schema: { type: 'integer', minimum: 0 }
                         }
                     }
@@ -287,7 +328,7 @@ export const swaggerDocument = {
             post: operation({
                 operationId: 'signup', tag: 'Auth', summary: 'Register an account',
                 public: true, status: 201, response: wrap('user', 'User'), errors: [400, 500],
-                description: 'Creates an account. Use login afterwards to obtain a JWT.',
+                description: 'Creates an account. Use login afterwards to create a session and obtain an access token and refresh cookie.',
                 request: {
                     schema: 'SignupInput',
                     example: { username: 'demo_user', password: 'demo_password', email: 'demo@example.com', name: 'Demo User' }
@@ -296,16 +337,64 @@ export const swaggerDocument = {
         },
         '/auth/login': {
             post: operation({
-                operationId: 'login', tag: 'Auth', summary: 'Log in and obtain a Bearer JWT',
-                public: true, response: ref('LoginResponse'), errors: [401, 429, 500],
-                description: 'Use an existing account. Limited to 20 requests per IP per 15 minutes; successful and failed requests both count.',
+                operationId: 'login', tag: 'Auth', summary: 'Log in and create a refresh-token session',
+                public: true, response: ref('LoginResponse'), errors: [400, 401, 403, 429, 500],
+                responseDescription: 'Logged in. JSON contains accessToken and user; Set-Cookie stores the refresh token.',
+                responseHeaders: { 'Set-Cookie': refreshCookieHeader },
+                description: [
+                    'Use an existing account. Creates a session with a fixed 7-day expiry and an access JWT valid for at most 15 minutes. The refresh token is only returned through Set-Cookie.',
+                    trustedOriginDescription,
+                    'Limited to 20 requests per IP per 15 minutes; successful and failed login attempts both count. Browser clients calling from a different origin must use credentials: include to accept the refresh cookie.'
+                ].join('\n\n'),
                 request: { schema: 'LoginInput', example: { username: 'demo_user', password: 'demo_password' } }
+            })
+        },
+        '/auth/refresh': {
+            post: operation({
+                operationId: 'refresh', tag: 'Auth', summary: 'Issue an access token and rotate the refresh cookie',
+                security: [{ cookieAuth: [] }], response: ref('RefreshResponse'), errors: [401, 403, 429, 500],
+                responseDescription: 'Refresh succeeded. JSON contains accessToken; Set-Cookie replaces the refresh token without extending the session expiry.',
+                responseHeaders: { 'Set-Cookie': refreshCookieHeader },
+                description: [
+                    'No request body or Bearer access token is required. Sends the trellone_refresh cookie, marks that refresh token as used, and replaces it with a new token in the same session.',
+                    trustedOriginDescription,
+                    'Reusing a previously consumed refresh token revokes its entire session, including the latest refresh token. Serialize refresh requests, including across browser tabs, to avoid accidental reuse.',
+                    'Missing, invalid, expired, or reused tokens and revoked sessions return 401 with code REFRESH_TOKEN_INVALID and clear the cookie. Technical failures return 500 and preserve the cookie; failed rotation is rolled back.',
+                    'Limited to 60 requests per IP per minute. Browser clients calling from a different origin must use credentials: include. In Swagger, log in first, execute this endpoint, then copy the returned accessToken into Authorize manually.'
+                ].join('\n\n'),
+                responseOverrides: {
+                    401: {
+                        description: 'Refresh authentication failed. The refresh cookie is cleared. A reused token also revokes its session.',
+                        headers: { 'Set-Cookie': clearedRefreshCookieHeader },
+                        content: {
+                            'application/json': {
+                                schema: ref('Error'),
+                                example: { code: 'REFRESH_TOKEN_INVALID', message: 'Please log in again.' }
+                            }
+                        }
+                    }
+                }
+            })
+        },
+        '/auth/logout': {
+            post: operation({
+                operationId: 'logout', tag: 'Auth', summary: 'Revoke the current session and clear the refresh cookie',
+                security: [{ cookieAuth: [] }, {}], response: ref('LogoutResponse'), errors: [403, 500],
+                responseDescription: 'Logged out. Any session identified by the refresh cookie is revoked, and the browser cookie is expired.',
+                responseHeaders: { 'Set-Cookie': clearedRefreshCookieHeader },
+                description: [
+                    'No request body or Bearer access token is required. Revokes the session identified by trellone_refresh, if found, and clears the cookie. Repeating logout or sending no/unknown refresh token still returns 200.',
+                    trustedOriginDescription,
+                    'Already issued access JWTs remain usable until exp. The frontend should also clear its in-memory access token. In Swagger, clear the Bearer value in Authorize separately; the Authorize Logout button does not call this endpoint.',
+                    'Browser clients calling from a different origin must use credentials: include so the backend receives and clears the refresh cookie.'
+                ].join('\n\n')
             })
         },
         '/auth/me': {
             get: operation({
                 operationId: 'getMe', tag: 'Auth', summary: 'Get the currently authenticated account',
-                response: ref('User'), errors: [401, 404, 500]
+                response: ref('User'), errors: [401, 404, 500],
+                description: 'Requires a valid Bearer accessToken; the refresh cookie alone does not authenticate this endpoint. Expired JWTs return code ACCESS_TOKEN_EXPIRED, and invalid JWTs return ACCESS_TOKEN_INVALID. Refresh, update Authorize, then retry. Missing Bearer tokens return 401 with message only.'
             })
         },
         '/workspaces': {

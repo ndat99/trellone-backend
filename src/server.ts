@@ -8,6 +8,8 @@ import listRoutes from './routes/listRoutes';
 import taskRoutes from './routes/taskRoutes';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerDocument } from './config/swagger';
+import cookieParser from 'cookie-parser';
+import { AUTH_ALLOWED_ORIGINS } from './config/auth';
 
 
 const app = express();  //khoi tao ud express
@@ -16,18 +18,25 @@ if (!process.env.JWT_SECRET) {
   throw new Error('FATAL: JWT_SECRET is not defined in environment variables.');
 }
 
-app.use(cors()); //cho phep domain khac goi API
+app.use(cors({
+    origin: AUTH_ALLOWED_ORIGINS,
+    credentials: true
+})); //cho phep domain khac goi API
+
 app.use(express.json()) //dich JSON tu frontend
+app.use(cookieParser());
 
 app.get('/openapi.json', (req, res) => {  //tai lieu OpenAPI duoi dang JSON
   res.json(swaggerDocument);
 });
+
 app.use(
   '/api-docs',  //giao dien Swagger UI
   swaggerUi.serve,
   swaggerUi.setup(swaggerDocument, {
     swaggerOptions: {
       validatorUrl: null,
+      withCredentials: true,
       displayRequestDuration: true
     }
   })

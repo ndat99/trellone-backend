@@ -1,16 +1,10 @@
 import userModel, {UserRow} from '../models/userModel';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+import authSessionService, { type SessionTokens } from './authSessionService';
 
-export type LoginResult = {
-    token: string,
-    user: {
-        id: number,
-        username: string,
-        email: string,
-        name: string
-    };
-}
+export type LoginResult = SessionTokens & {
+    user: Pick<UserRow, 'id' | 'username' | 'email' | 'name'>;
+};
 
 const authService = {
     // Controller truyền password thô, Service chịu trách nhiệm hash
@@ -18,7 +12,7 @@ const authService = {
         try {
             const saltRounds = 10; //10 vong
             const passwordHash = await bcrypt.hash(password, saltRounds);
-            return userModel.create(username, email, passwordHash, name);
+            return await userModel.create(username, email, passwordHash, name);
         } catch (error: any){
             //trung username/email
             if (error.code === '23505'){
@@ -40,10 +34,9 @@ const authService = {
             throw { status: 401, message: 'Invalid username or password.'};
         }
         //cap token
-        const secretKey = process.env.JWT_SECRET;
-        const token = jwt.sign({ id: user.id }, secretKey!, {expiresIn: '7d'}); //7 days
+        const token = await authSessionService.createSession(user.id);
         return {
-            token,
+            ...token,
             user: {
                 id: user.id,
                 username: user.username,
