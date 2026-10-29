@@ -5,7 +5,11 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon src/server.ts"
+    "dev": "nodemon src/server.ts",
+    "seed": "node scripts/seed.cjs",
+    "seed:preview": "node scripts/seed.cjs --dry-run",
+    "seed:remove": "node scripts/unseed.cjs",
+    "test:seed": "node --test scripts/seed.test.cjs"
   },
   "keywords": [],
   "author": "",
