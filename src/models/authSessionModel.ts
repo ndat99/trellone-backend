@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg';
+import pool from '../config/db';
 
 export interface AuthSessionRow {
     id: string;
@@ -49,7 +50,27 @@ const authSessionModel = {
             `,
             [sessionId]
         );
-    }
+    },
+
+    isActive: async (sessionId: string, userId: number): Promise<boolean> => {
+        const result = await pool.query(`
+            SELECT 1 FROM auth_sessions
+            WHERE id = $1 AND user_id = $2
+                AND revoked_at IS NULL
+                AND expires_at > CURRENT_TIMESTAMP;
+        `, [sessionId, userId]);
+
+        return result.rows.length > 0;
+    },
+
+    revokeAllForUser: async (userId: number, client: PoolClient): Promise<void> => {
+        await client.query(`
+            UPDATE auth_sessions
+            SET revoked_at = CURRENT_TIMESTAMP
+            WHERE user_id = $1 AND revoked_at IS NULL;
+        `, [userId]);
+    },
+
 };
 
 export default authSessionModel;

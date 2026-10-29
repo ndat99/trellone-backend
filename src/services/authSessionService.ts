@@ -4,6 +4,8 @@ import pool from '../config/db';
 import authSessionModel, { AuthSessionRow} from '../models/authSessionModel';
 import refreshTokenModel from '../models/refreshTokenModel';
 import { generateRefreshToken, hashRefreshToken} from '../utils/tokenUtils';
+import userModel from '../models/userModel';
+
 
 const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -64,18 +66,22 @@ const issueTokens = async (session: AuthSessionRow, client: PoolClient): Promise
 };
 
 const authSessionService = {
-    createSession: async (userId: number): Promise<SessionTokens> => {
+    createSession: async (userId: number, expectedPasswordHash: string): Promise<SessionTokens> => {
         const client = await pool.connect();
 
         try {
             await client.query('BEGIN');
+
+            const user = await userModel.getPasswordByIdForUpdate(userId, client);
+            if (!user || user.password_hash !== expectedPasswordHash) {
+                throw { status: 401, message: 'Invalid username or password.' };
+            }
 
             const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
             const session = await authSessionModel.create(userId, expiresAt, client);
             const tokens = await issueTokens(session, client);
 
             await client.query('COMMIT');
-
             return tokens;
         } catch (error) {
             await client.query('ROLLBACK');
