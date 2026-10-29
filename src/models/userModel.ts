@@ -1,27 +1,44 @@
 import pool from '../config/db';
 
+//du lieu duoc phep tra ra API
 export interface UserRow {
     id: number,
     username: string,
-    password_hash: string,
     name: string,
     email: string,
+    avatar_url: string | null;
     created_at: Date,
-    avatar_url: string 
+}
+
+// Chi dung noi bo khi xac thuc
+export type UserWithPasswordRow = UserRow & {
+    password_hash: string;
+};
+
+export interface PasswordRow {
+    id: number;
+    password_hash: string;
+}
+
+export interface UpdateProfileFields {
+    name?: string;
+    avatar_url?: string | null;
 }
 
 const userModel = {
     getById: async (userId: number): Promise<UserRow | null> => {
         const query = `
-            SELECT id, username, email, name, created_at FROM users WHERE id = $1;
+            SELECT id, username, email, name, avatar_url, created_at
+            FROM users WHERE id = $1;
         `
         const user = await pool.query(query, [userId]);
         return user.rows[0] ?? null;
     },
 
-    getByUsername: async (username: string) : Promise<UserRow | null> => {
+    getByUsername: async (username: string) : Promise<UserWithPasswordRow| null> => {
         const query = `
-            SELECT id, username, email, name, password_hash FROM users WHERE username = $1
+            SELECT id, username, email, name, avatar_url, created_at, password_hash
+            FROM users WHERE username = $1
         `;
         const result = await pool.query(query, [username]);
         return result.rows[0] ?? null;
@@ -31,13 +48,35 @@ const userModel = {
         const query = `
             INSERT INTO users (username, email, password_hash, name)
             VALUES ($1, $2, $3, $4)
-            RETURNING id, username, email, name, created_at;
+            RETURNING id, username, email, name, avatar_url, created_at;
         `;
 
         const values = [username, email, passwordHash, name];
         const result = await pool.query(query, values);
 
         return result.rows[0];
+    },
+
+    updateProfile: async (userId: number, fields: UpdateProfileFields): Promise<UserRow | null> =>{
+        const query = `
+            UPDATE users
+            SET name = COALESCE($1, name),
+                avatar_url = CASE
+                    WHEN $2::boolean THEN $3::text
+                    ELSE avatar_url
+                END
+            WHERE id = $4
+            RETURNING id, username, email, name, avatar_url, created_at;
+        `;
+
+        const result = await pool.query(query, [
+            fields.name ?? null,
+            fields.avatar_url !== undefined,
+            fields.avatar_url ?? null,
+            userId
+        ]);
+
+        return result.rows[0] ?? null;
     }
 };
 
