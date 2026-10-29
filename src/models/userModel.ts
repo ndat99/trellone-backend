@@ -1,3 +1,4 @@
+import { PoolClient } from 'pg';
 import pool from '../config/db';
 
 //du lieu duoc phep tra ra API
@@ -77,7 +78,35 @@ const userModel = {
         ]);
 
         return result.rows[0] ?? null;
-    }
+    },
+
+    getPasswordById: async (userId: number): Promise<PasswordRow | null> => {
+        const result = await pool.query<PasswordRow>(
+            'SELECT id, password_hash FROM users WHERE id = $1;',
+            [userId]
+        );
+        return result.rows[0] ?? null;
+    },
+
+    getPasswordByIdForUpdate: async (userId: number, client: PoolClient): Promise<PasswordRow | null> => {
+        const result = await client.query<PasswordRow>(
+            'SELECT id, password_hash FROM users WHERE id = $1 FOR UPDATE;',
+            [userId]
+        );
+        return result.rows[0] ?? null;
+    },
+
+    //chi cap nhat neu hash trong DB van bang hash da doc
+    updatePasswordIfCurrent: async (userId: number, expectedHash: string, newHash: string, client: PoolClient): Promise<boolean> => {
+        const result = await client.query(`
+            UPDATE users
+            SET password_hash = $1
+            WHERE id = $2 AND password_hash = $3;
+        `, [newHash, userId, expectedHash]);
+
+        return result.rowCount === 1;
+    },
+
 };
 
 export default userModel;

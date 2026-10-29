@@ -34,7 +34,7 @@ const authService = {
             throw { status: 401, message: 'Invalid username or password.'};
         }
         //cap token
-        const token = await authSessionService.createSession(user.id);
+        const token = await authSessionService.createSession(user.id, user.password_hash);
         return {
             ...token,
             user: {

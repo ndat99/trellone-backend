@@ -1,4 +1,7 @@
 import userModel, { UserRow, UpdateProfileFields} from '../models/userModel';
+import bcrypt from 'bcrypt';
+import pool from '../config/db';
+import authSessionModel from '../models/authSessionModel';
 
 function fail(status: number, message: string): never {
     throw { status, message };
@@ -21,6 +24,7 @@ function readBody( input: unknown, allowed: string[]): Record<string, unknown> {
 }
 
 const userService = {
+    //cap nhat profile
     updateProfile: async (userId: number, input: unknown): Promise<UserRow> => {
         const body = readBody(input, ['name', 'avatar_url']);
         const fields: UpdateProfileFields = {};
@@ -68,6 +72,58 @@ const userService = {
         const user = await userModel.updateProfile(userId, fields);
         if (!user) fail(404, 'User not found.');
         return user;
+    },
+
+    //doi mat khau
+    changePassword: async (userId: number, input: unknown): Promise<void> => {
+        const body = readBody(input, ['currentPassword', 'newPassword']);
+        const { currentPassword, newPassword } = body;
+
+        if (typeof currentPassword !== 'string' || !currentPassword ||
+            Buffer.byteLength(currentPassword, 'utf8') > 1024) {
+            fail(400, 'Current password is required and must not exceed 1024 bytes.');
+        }
+
+        if (typeof newPassword !== 'string' ||
+            [...newPassword].length < 15 ||
+            !newPassword.trim() ||
+            Buffer.byteLength(newPassword, 'utf8') > 72) {
+            fail(400, 'New password must contain at least 15 characters and at most 72 UTF-8 bytes.');
+        }
+
+        const user = await userModel.getPasswordById(userId);
+        if (!user) fail(404, 'User not found.');
+
+        if (!(await bcrypt.compare(currentPassword, user.password_hash))) {
+            fail(400, 'Current password is incorrect.');
+        }
+
+        if (await bcrypt.compare(newPassword, user.password_hash)) {
+            fail(400, 'New password must differ from the current password.');
+        }
+
+        // BCrypt chay truoc transaction de tranh giu khoa DB qua lau
+        const newHash = await bcrypt.hash(newPassword, 10);
+        const client = await pool.connect();
+
+        try {
+            await client.query('BEGIN');
+
+            const updated = await userModel.updatePasswordIfCurrent(
+                userId, user.password_hash, newHash, client
+            );
+            if (!updated) {
+                fail(409, 'Password changed concurrently. Please log in again.');
+            }
+            await authSessionModel.revokeAllForUser(userId, client);
+
+            await client.query('COMMIT');
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
     },
 };
 
